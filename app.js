@@ -16,7 +16,7 @@ app.get('/', (req, res) => {
       <body>
         <div class="container">
           <h1>EB Docker Demo Application</h1>
-          <p>Application <span class="version">Version 3.0</span> running successfully!</p>
+          <p>Application <span class="version">Version 4.0</span> running successfully!</p>
           <p><strong>Server Time:</strong> ${new Date().toISOString()}</p>
         </div>
       </body>
@@ -26,5 +26,5 @@ app.get('/', (req, res) => {
 
 app.listen(port, () => {
   console.log(`Demo application listening on port ${port}`);
-  console.log(`Version: 3.0`);
+  console.log(`Version: 4.0`);
 });
