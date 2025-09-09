@@ -1,0 +1,64 @@
+name: Deploy to Elastic Beanstalk
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create deployment package
+        run: |
+          zip -r deploy.zip . -x "*.git*" "*.github*"
+
+      - name: Generate version label
+        id: version
+        run: |
+          VERSION="v1-$(date +%Y%m%d%H%M%S)-${{ github.sha }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Get AWS account ID
+        id: account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
+
+      - name: Ensure S3 bucket exists
+        run: |
+          BUCKET_NAME="elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ env.ACCOUNT_ID }}"
+          aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null || aws s3 mb s3://$BUCKET_NAME --region ${{ secrets.AWS_REGION }}
+          echo "BUCKET_NAME=$BUCKET_NAME" >> $GITHUB_ENV
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp deploy.zip s3://${{ env.BUCKET_NAME }}/${{ env.VERSION }}.zip
+
+      - name: Create Application Version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name DockerDemo \
+            --version-label ${{ env.VERSION }} \
+            --description "Commit ${{ github.sha }}" \
+            --source-bundle S3Bucket=${{ env.BUCKET_NAME }},S3Key=${{ env.VERSION }}.zip \
+            --process
+          
+          echo "Waiting for version processing (30 seconds)"
+          sleep 30
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name DockerDemo-env \
+            --version-label ${{ env.VERSION }}
