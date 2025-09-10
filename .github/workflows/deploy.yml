@@ -55,7 +55,7 @@ jobs:
             --process
           
           echo "Waiting for version processing (30 seconds)"
-          sleep 30
+          sleep 60
 
       - name: Deploy to Elastic Beanstalk
         run: |
